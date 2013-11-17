@@ -30,19 +30,60 @@ class VolcanoFtp
     when "PASS"
       @cs.write "230 User logged in\r\n"
     when "LIST"
-      self.ftp_list("/")
+      self.ftp_list(Dir.pwd)
     when "SYST"
       self.ftp_syst(nil)
     when "FEAT"
       @cs.write "211-Extensions supported\r\n211 end\r\n"
     when "PWD"
-      self.ftp_pwd
+      self.ftp_pwd(Dir.pwd)
+    when "CWD"
+      self.ftp_cwd(cmd)
     when "TYPE"
       ftp_type(cmd[1])
+    when "PORT"
+      ftp_port(cmd[1])
     else
       ftp_502(cmd)
     end
     1
+  end
+
+    # Changer le repertoire courrant
+  def ftp_cwd(path)
+     i = 1
+     str = "";
+    while i < path.count
+      if !(i == 1)
+        str = str + " "
+      end
+      str = str + path[i]
+      i+= 1
+ end
+    begin
+      Dir.chdir(str)
+      @cs.write "250 Directory successfully changed.\r\t"
+    rescue
+      @cs.write "550 Failed to change directory.\r\n"
+    end
+  end
+
+    # Passage en mode active
+  def ftp_port(params)
+    res = params.split(',')
+    port = res[4].to_i * 256 + res[5].to_i
+    host = res[0..3].join('.')
+    if @data_socket
+      @data_socket.close
+    end
+    begin
+      @data_socket = TCPSocket.new(host, port)
+      puts "Opened active connection at #{host}:#{port}"
+      @passive = false
+      @cs.write "200 Connection established (#{port})\r\n"
+    rescue
+      @cs.write "425 Data connection failed\r\n"
+    end
   end
   
   def ftp_type(args)
@@ -56,9 +97,8 @@ class VolcanoFtp
     @cs.write "215 UNIX Type: L8\r\n"
     1
   end
-  def ftp_pwd
-    @cs.write "257 '/' Root path\r\n"
-    0
+  def ftp_pwd(params)
+    @cs.write "257 \"#{params}\" is the current directory\r\n"
   end
   def ftp_noop(args)
     @cs.write "200 Don't worry my lovely client, I'm here ;)"
@@ -87,22 +127,81 @@ class VolcanoFtp
     running
   end
 
-  def ftp_list(dir = '.')
-	open_data_transfer do |data_socket|
-	    puts "toto011"
-		list = Thread.current[:cwd].get_list
-		puts "toto02"
-		data_socket.puts("----" + Thread.current[:cwd].ftp_name + "----")
-		puts "toto03"
-		list.each {|file| data_socket.puts(file.ftp_size.to_s + "\t" + file.ftp_name + "\r\n");puts file.ftp_name }
-		data_socket.puts("----" + Thread.current[:cwd].ftp_name + "----")
-	end
-	Thread.current[:data_socket].close if Thread.current[:data_socket]
-	Thread.current[:data_socket] = nil
- 
-	@cs.write "200 OK\r\n"
-    0
+  def ftp_list(params)
+    data_connection do |data_socket|
+      if params.nil?
+        params = '.'
+      end
+      output = `ls -al \'#{params}\' 2>&1` 
+      result = $?.success?
+      if result
+        @data_socket.write `ls -al \'#{params}\'`
+      else
+        @cs.write "501 Failed to list directory.\r\n"
+      end
+    end
+    @data_socket.close if @data_socket
+    @data_socket = nil
+    @cs.write "226 Transfer complete\r\n"
   end
+
+  # Ouvre la connection permettant de transferer les donnees
+  def data_connection(&blk)
+    client_socket = nil
+    if (@passive)
+      unless (IO.select([@data_socket], nil, nil, 60000))
+        stattus 425
+        return false
+      end
+      client_socket = @data_socket.accept
+      status 150
+    else
+      client_socket = @data_socket
+      status 125
+    end
+    yield(client_socket)
+    return true
+  ensure
+    client_socket.close if client_socket && @passive
+    client_socket = nil
+  end
+
+    # Afficher les messages de retour en fonction du code entree en parametre
+  def status(code)
+    case (code.to_i)
+    when 125
+      @cs.write "125 Data connection already open; transfer starting.\r\n"
+    when 150
+      @cs.write "150 File status okay; about to open data connection.\r\n"
+    when 200
+      @cs.write "200 Command okey.\r\n"
+    when 226
+      @cs.write "226 Closing data connection.\r\n"
+    when 227
+      @cs.write "227 Entering Passive Mode.\r\n"
+    when 230
+      @cs.write "230 User logged in, proceed.\r\n"
+    when 250
+      @cs.write "250 Requested file action okay, completed.\r\n"
+    when 331
+      @cs.write "331 User name okay, need password.\r\n"
+    when 425
+      @cs.write "425 Can't open data connection.\r\n"
+    when 500
+      @cs.write "500 Syntax error, command unrecognized.\r\n"
+    when 501
+      @cs.write "501 Syntax error in parameters or arguments\r\n"
+    when 502
+      @cs.write "502 Command not implemented.\r\n"
+    when 530
+      @cs.write "530 Not logged in.\r\n"
+    when 550
+      @cs.write "550 Requested action not taken.\r\n"
+    else
+      status(code, '')
+    end
+  end
+
   def run
     running = 1
     while not running == 0
@@ -139,10 +238,26 @@ class VolcanoFtp
     end
   end
 
-protected
-
-# Protected methods go here
-
+protected 
+  # Protected methods go here
+ 
+  def open_data_transfer(&block)
+    client_socket = nil
+    if (Thread.current[:passive])
+      client_socket = Thread.current[:data_socket].accept
+      @cs.write "150 File status OK\r\n"
+    else
+      client_socket = Thread.current[:data_socket]
+      @cs.write "125 File status OK\r\n"
+    end
+ 
+    yield(client_socket)
+    puts "ok!"
+    return true
+    ensure
+      client_socket.close if client_socket && Thread.current[:passive]
+      client_socket = nil    
+  end
 end
 
 # Main
@@ -156,3 +271,5 @@ if ARGV[0]
     puts e
   end
 end
+
+
