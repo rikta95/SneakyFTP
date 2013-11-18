@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 require "socket"
+require 'yaml'
 include Socket::Constants
 
 # Volcano FTP constants
@@ -11,15 +12,26 @@ MAX_USER = 50
 
 # Volcano FTP class
 class VolcanoFtp
-  def initialize(port)#,opts = {}
+  def initialize(config)
+    @host = config['bin_adress']
+    @port = config['port']
+    @flag_connected = true
+    @pids = []
+    @transfert_type = BINARY_MODE
+    @tsocket = nil
+    @username = ""
+    @password = ""
+    @passive = false
+    
     # Prepare instance 
-    @socket = TCPServer.new("", port)
+    @socket = TCPServer.new(@host, @port)
     @socket.listen(MAX_USER)
 
     @pids = []
     @transfert_type = BINARY_MODE
     @tsocket = nil
-    puts "Server ready to listen for clients on port #{port}"
+    write_pid_yml(Process.pid)
+    puts "Server ready to listen for clients on port #{config["port"]}"
   end
   
   def manage_line(line)
@@ -260,11 +272,86 @@ protected
   end
 end
 
+# Usage du script
+def usage
+  puts "Usage: ruby volcano_ftp.rb start|stop|restart"
+end
+
+def start(var_pids)
+  if var_pids == "nil"
+    begin
+      config = begin
+        YAML.load(File.open("config/config.yml"))
+      rescue ArgumentError => e
+        puts "Could not parse YAML: #{e.message}"
+      end
+    ftp = VolcanoFtp.new(config)
+    write_pid_yml(Process.pid)
+    ftp.run
+    rescue
+      write_pid_yml(Process.pid)
+      puts "Erreur : #{$!}"
+    end
+  else
+    puts "The server is already running"
+  end
+end
+
+
+# MŽthode permettant d'arrter le serveur
+def stop(var_pids)
+  begin
+    if var_pids == "nil"
+     puts "No server is running"
+    else 
+      Process.kill(1, var_pids)
+     write_pid_yml("nil")
+      puts "Server is closed"
+    end
+  rescue
+  puts "Server not closed properly"
+  write_pid_yml("nil")
+  end
+end
+
+def get_pids_yml
+  config = begin
+    YAML.load(File.open("config/config.yml"))
+  rescue ArgumentError => e
+    puts "Could not parse YAML: #{e.message}"
+  end
+  config['pids']
+end
+
+def write_pid_yml(pid)
+  config = begin
+    YAML.load(File.open("config/config.yml"))
+  rescue ArgumentError => e
+    puts "Could not parse YAML: #{e.message}"
+  end
+  config['pids'] = pid
+  File.open("config/config.yml", "w") do |f|
+    f.puts("port   : #{config['port']}")
+    f.puts("bind   : #{config['bind']}")
+    f.puts("root_directory   : #{config['root_directory']}")
+    f.puts("pids   : #{pid}")
+  end
+end
+
 # Main
 if ARGV[0]
   begin
-    ftp = VolcanoFtp.new(ARGV[0])#Param === port de convertion
-    ftp.run
+    case ARGV[0]
+    when "start"
+        start(get_pids_yml)
+    when "stop"
+      stop(get_pids_yml)
+    when "restart"
+      stop(get_pids_yml)
+      start(get_pids_yml)
+    else
+      usage
+    end
   rescue SystemExit, Interrupt
     puts "Caught CTRL+C, exiting"
   rescue RuntimeError => e
