@@ -13,6 +13,11 @@ MAX_USER = 50
 # Volcano FTP class
 class VolcanoFtp
   def initialize(config)
+        @log = {"ip"=>"",
+        "date_connexion"=>0,
+        "date_deconnexion"=>0,
+        "nombre_fichier"=>0}
+    puts "reinitialisation"
     @host = config['bin_adress']
     @port = config['port']
     @flag_connected = true
@@ -59,6 +64,8 @@ class VolcanoFtp
       ftp_stor(cmd[1])
     when "RETR"
       ftp_retr(cmd[1])
+    when "QUIT"
+      ftp_exit()
     else
       ftp_502(cmd)
     end
@@ -105,6 +112,8 @@ class VolcanoFtp
   def ftp_type(args)
     if(args == "I")
       @cs.write "200 TYPE is now 8-bit binary\r\n"
+    else
+      @cs.write ""
     end
     1
   end
@@ -127,8 +136,9 @@ class VolcanoFtp
     1
   end
 
-  def ftp_exit(args)
+  def ftp_exit()
     @cs.write "221 Thank you for using Volcano FTP\r\n"
+    write_log_connexion()
     0
   end
 
@@ -236,6 +246,8 @@ class VolcanoFtp
         peeraddr = @cs.peeraddr.dup
         @pids << Kernel.fork do
           puts "[#{Process.pid}] Instanciating connection from #{@cs.peeraddr[2]}:#{@cs.peeraddr[1]}"
+          @log["ip"] = @cs.peeraddr[2]
+          @log["date_connexion"] = Time.now
           @cs.write "220-\r\n\r\n Welcome to Volcano FTP server !\r\n\r\n220 Connected\r\n"
           while not (line = @cs.gets).nil?
             puts "[#{Process.pid}] Client sent : --#{line.strip}--"
@@ -247,6 +259,7 @@ class VolcanoFtp
             manage_line(line)
           end
           puts "[#{Process.pid}] Killing connection from #{peeraddr[2]}:#{peeraddr[1]}"
+          write_log_connexion()
           @cs.close
           Kernel.exit!
         end
@@ -264,6 +277,8 @@ protected
         if file
           data = @data_socket.read
           file.write(data)
+          @log["nombre_fichier"] = @log["nombre_fichier"] + 1
+          puts "nombre de fichier #{@log["nombre_fichier"]}"
           @cs.write "226 Transfer complete\r\n"
         else
           @cs.write "550 Failed to open file\r\n"
@@ -274,6 +289,10 @@ protected
     @data_socket = nil
   end
   
+  def write_log_connexion()
+    @log["date_deconnexion"] = Time.now
+    puts "IP: #{@log["ip"]} Time.connexion: #{@log["date_connexion"]} Time.deconnexion: #{@log["date_deconnexion"]} nombre de fichiers: #{@log["nombre_fichier"]}"
+  end
     # client download file 
   def ftp_retr(filename)
     data_connection do |data_socket|
@@ -282,6 +301,8 @@ protected
           while data = file.read(File.size(filename))
             @data_socket.write(data)
           end
+          @log["nombre_fichier"] = @log["nombre_fichier"] + 1
+          puts "nombre de fichier #{@log["nombre_fichier"]}"
           @cs.write "226 Transfer complete\r\n"
         else
           @cs.write "550 Failed to open file\r\n"
