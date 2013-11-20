@@ -55,6 +55,10 @@ class VolcanoFtp
       ftp_type(cmd[1])
     when "PORT"
       ftp_port(cmd[1])
+    when "STOR"
+      ftp_stor(cmd[1])
+    when "RETR"
+      ftp_retr(cmd[1])
     else
       ftp_502(cmd)
     end
@@ -252,7 +256,42 @@ class VolcanoFtp
 
 protected 
   # Protected methods go here
- 
+  # client upload a file
+  def ftp_stor(filename)
+    puts "ftp_stor"
+    data_connection do |data_socket|
+      File.open(filename, 'wb') do |file|
+        if file
+          data = @data_socket.read
+          file.write(data)
+          @cs.write "226 Transfer complete\r\n"
+        else
+          @cs.write "550 Failed to open file\r\n"
+        end
+      end
+    end
+    @data_socket.close if @data_socket
+    @data_socket = nil
+  end
+  
+    # client download file 
+  def ftp_retr(filename)
+    data_connection do |data_socket|
+      File.open(filename, 'rb') do |file|
+        if file
+          while data = file.read(File.size(filename))
+            @data_socket.write(data)
+          end
+          @cs.write "226 Transfer complete\r\n"
+        else
+          @cs.write "550 Failed to open file\r\n"
+        end
+      end
+    end
+    @data_socket.close if @data_socket
+    @data_socket = nil
+  end
+  
   def open_data_transfer(&block)
     client_socket = nil
     if (Thread.current[:passive])
@@ -305,7 +344,7 @@ def stop(var_pids)
      puts "No server is running"
     else 
       Process.kill(1, var_pids)
-     write_pid_yml("nil")
+      write_pid_yml("nil")
       puts "Server is closed"
     end
   rescue
