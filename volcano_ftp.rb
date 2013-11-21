@@ -82,7 +82,7 @@ class VolcanoFtp
       end
       str = str + path[i]
       i+= 1
- end
+    end
     begin
       Dir.chdir(str)
       @cs.write "250 Directory successfully changed.\r\t"
@@ -140,17 +140,6 @@ class VolcanoFtp
     @cs.write "221 Thank you for using Volcano FTP\r\n"
     write_log_connexion()
     0
-  end
-
-  def interprete_line(args)
-    a = args.split
-    func = "ftp_" + a[0]
-    begin
-      running = send(func,a)
-    rescue
-      running = send("ftp_502", a)
-    end
-    running
   end
 
   def ftp_list(params)
@@ -251,11 +240,7 @@ class VolcanoFtp
           @cs.write "220-\r\n\r\n Welcome to Volcano FTP server !\r\n\r\n220 Connected\r\n"
           while not (line = @cs.gets).nil?
             puts "[#{Process.pid}] Client sent : --#{line.strip}--"
-            ####
-            # Handle commands here
-            #running = interprete_line(line)
-            #puts running
-            ####
+            # Manage output command
             manage_line(line)
           end
           puts "[#{Process.pid}] Killing connection from #{peeraddr[2]}:#{peeraddr[1]}"
@@ -358,7 +343,7 @@ def start(var_pids)
 end
 
 
-# Méthode permettant d'arrêter le serveur
+# MÔøΩthode permettant d'arrÔøΩter le serveur
 def stop(var_pids)
   begin
     if var_pids == "nil"
