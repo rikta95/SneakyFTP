@@ -381,6 +381,7 @@ end
   end
 
   # Main
+#pid = fork do #DECOMMENTER CETTE LIGNE POUR UTILISER LE SCRIPT CONVENABLEMENT SANS LOG
   if ARGV[0]
     begin
       case ARGV[0]
@@ -400,5 +401,6 @@ end
       puts e
     end
   end
+#end
 
 
