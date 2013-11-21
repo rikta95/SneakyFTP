@@ -226,24 +226,28 @@ class VolcanoFtp
             ####
             @pids.delete(pid)
           end
-       end
-       else
+      end
+      else
         @cs,  = @socket.accept
         peeraddr = @cs.peeraddr.dup
-        @pids << Kernel.fork do
-          puts "[#{Process.pid}] Instanciating connection from #{@cs.peeraddr[2]}:#{@cs.peeraddr[1]}"
-          @log["ip"] = @cs.peeraddr[2]
-          @log["date_connexion"] = Time.now
-          @cs.write "220-\r\n\r\n Welcome to Volcano FTP server !\r\n\r\n220 Connected\r\n"
-          while not (line = @cs.gets).nil?
-            puts "[#{Process.pid}] Client sent : --#{line.strip}--"
-            # Manage output command
-            manage_line(line)
+        begin
+          @pids << Kernel.fork do
+            puts "[#{Process.pid}] Instanciating connection from #{@cs.peeraddr[2]}:#{@cs.peeraddr[1]}"
+            @log["ip"] = @cs.peeraddr[2]
+            @log["date_connexion"] = Time.now
+            @cs.write "220-\r\n\r\n Welcome to Volcano FTP server !\r\n\r\n220 Connected\r\n"
+            while not (line = @cs.gets).nil?
+              puts "[#{Process.pid}] Client sent : --#{line.strip}--"
+              # Manage output command
+              manage_line(line)
+            end
+            puts "[#{Process.pid}] Killing connection from #{peeraddr[2]}:#{peeraddr[1]}"
+            write_log_connexion()
+            @cs.close
+            Kernel.exit!
           end
-          puts "[#{Process.pid}] Killing connection from #{peeraddr[2]}:#{peeraddr[1]}"
-          write_log_connexion()
-          @cs.close
-          Kernel.exit!
+        rescue Interrupt
+          puts "Bah Alors MORREL !"
         end
       end
     end
@@ -273,7 +277,12 @@ class VolcanoFtp
   
   def write_log_connexion()
     @log["date_deconnexion"] = Time.now
-    puts "IP: #{@log["ip"]} Time.connexion: #{@log["date_connexion"]} Time.deconnexion: #{@log["date_deconnexion"]} nombre de fichiers: #{@log["nombre_fichier"]}"
+    diff = @log["date_deconnexion"] - @log["date_connexion"]
+    diff = (diff * 10 ** 2).round.to_f / 10 ** 2
+    #puts "#{@log["ip"]};#{@log["date_connexion"]};#{@log["date_deconnexion"]};#{diff};#{@log["nombre_fichier"]}"
+    File.open("connexions.txt", "a") do |f|
+    f.puts("#{@log["ip"]};#{@log["date_connexion"]};#{@log["date_deconnexion"]};#{diff};#{@log["nombre_fichier"]}")
+    end
   end
   # client download file 
   def ftp_retr(filename)
@@ -402,5 +411,4 @@ end
     end
   end
 #end
-
 
