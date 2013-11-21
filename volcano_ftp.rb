@@ -252,67 +252,67 @@ class VolcanoFtp
   protected 
   # Protected methods go here
   # client upload a file
-    def ftp_stor(filename)
-      puts "ftp_stor"
-      data_connection do |data_socket|
-        File.open(filename, 'wb') do |file|
-          if file
-            data = @data_socket.read
-            file.write(data)
-            @log["nombre_fichier"] = @log["nombre_fichier"] + 1
-            puts "nombre de fichier #{@log["nombre_fichier"]}"
-            @cs.write "226 Transfer complete\r\n"
-          else
-            @cs.write "550 Failed to open file\r\n"
-          end
+  def ftp_stor(filename)
+    puts "ftp_stor"
+    data_connection do |data_socket|
+    File.open(filename, 'wb') do |file|
+        if file
+          data = @data_socket.read
+          file.write(data)
+          @log["nombre_fichier"] = @log["nombre_fichier"] + 1
+          puts "nombre de fichier #{@log["nombre_fichier"]}"
+          @cs.write "226 Transfer complete\r\n"
+        else
+          @cs.write "550 Failed to open file\r\n"
         end
       end
-      @data_socket.close if @data_socket
-      @data_socket = nil
     end
-  
-    def write_log_connexion()
-      @log["date_deconnexion"] = Time.now
-      puts "IP: #{@log["ip"]} Time.connexion: #{@log["date_connexion"]} Time.deconnexion: #{@log["date_deconnexion"]} nombre de fichiers: #{@log["nombre_fichier"]}"
-    end
-    # client download file 
-    def ftp_retr(filename)
-      data_connection do |data_socket|
-        File.open(filename, 'rb') do |file|
-          if file
-            while data = file.read(File.size(filename))
-              @data_socket.write(data)
-            end
-            @log["nombre_fichier"] = @log["nombre_fichier"] + 1
-            puts "nombre de fichier #{@log["nombre_fichier"]}"
-            @cs.write "226 Transfer complete\r\n"
-          else
-            @cs.write "550 Failed to open file\r\n"
-          end
-        end
-      end
-      @data_socket.close if @data_socket
-      @data_socket = nil
-    end
-  
-    def open_data_transfer(&block)
-      client_socket = nil
-      if (Thread.current[:passive])
-        client_socket = Thread.current[:data_socket].accept
-        @cs.write "150 File status OK\r\n"
-      else
-        client_socket = Thread.current[:data_socket]
-        @cs.write "125 File status OK\r\n"
-      end
-   
-      yield(client_socket)
-      puts "ok!"
-      return true
-      ensure
-        client_socket.close if client_socket && Thread.current[:passive]
-        client_socket = nil    
-    end
+    @data_socket.close if @data_socket
+    @data_socket = nil
   end
+  
+  def write_log_connexion()
+    @log["date_deconnexion"] = Time.now
+    puts "IP: #{@log["ip"]} Time.connexion: #{@log["date_connexion"]} Time.deconnexion: #{@log["date_deconnexion"]} nombre de fichiers: #{@log["nombre_fichier"]}"
+  end
+  # client download file 
+  def ftp_retr(filename)
+    data_connection do |data_socket|
+      File.open(filename, 'rb') do |file|
+        if file
+          while data = file.read(File.size(filename))
+            @data_socket.write(data)
+          end
+          @log["nombre_fichier"] = @log["nombre_fichier"] + 1
+          puts "nombre de fichier #{@log["nombre_fichier"]}"
+          @cs.write "226 Transfer complete\r\n"
+        else
+          @cs.write "550 Failed to open file\r\n"
+        end
+      end
+    end
+    @data_socket.close if @data_socket
+    @data_socket = nil
+  end
+  
+  def open_data_transfer(&block)
+    client_socket = nil
+    if (Thread.current[:passive])
+      client_socket = Thread.current[:data_socket].accept
+      @cs.write "150 File status OK\r\n"
+    else
+      client_socket = Thread.current[:data_socket]
+      @cs.write "125 File status OK\r\n"
+    end
+    
+    yield(client_socket)
+    puts "ok!"
+    return true
+    ensure
+      client_socket.close if client_socket && Thread.current[:passive]
+      client_socket = nil    
+  end
+end
 
   # Usage du script
   def usage
@@ -400,6 +400,5 @@ class VolcanoFtp
       puts e
     end
   end
-end
 
 
