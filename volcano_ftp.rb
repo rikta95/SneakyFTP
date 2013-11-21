@@ -13,10 +13,7 @@ MAX_USER = 50
 # Volcano FTP class
 class VolcanoFtp
   def initialize(config)
-        @log = {"ip"=>"",
-        "date_connexion"=>0,
-        "date_deconnexion"=>0,
-        "nombre_fichier"=>0}
+    @log = {"ip"=>"","date_connexion"=>0,"date_deconnexion"=>0,"nombre_fichier"=>0}
     puts "reinitialisation"
     @host = config['bin_adress']
     @port = config['port']
@@ -42,32 +39,32 @@ class VolcanoFtp
   def manage_line(line)
     cmd = line.split(' ')
     case cmd[0]
-    when  "USER"
-      @cs.write "331 USER OK\r\n"
-    when "PASS"
-      @cs.write "230 User logged in\r\n"
-    when "LIST"
-      self.ftp_list(Dir.pwd)
-    when "SYST"
-      self.ftp_syst(nil)
-    when "FEAT"
-      @cs.write "211-Extensions supported\r\n211 end\r\n"
-    when "PWD"
-      self.ftp_pwd(Dir.pwd)
-    when "CWD"
-      self.ftp_cwd(cmd)
-    when "TYPE"
-      ftp_type(cmd[1])
-    when "PORT"
-      ftp_port(cmd[1])
-    when "STOR"
-      ftp_stor(cmd[1])
-    when "RETR"
-      ftp_retr(cmd[1])
-    when "QUIT"
-      ftp_exit()
-    else
-      ftp_502(cmd)
+      when  "USER"
+        @cs.write "331 USER OK\r\n"
+      when "PASS"
+        @cs.write "230 User logged in\r\n"
+      when "LIST"
+        self.ftp_list(Dir.pwd)
+      when "SYST"
+        self.ftp_syst(nil)
+      when "FEAT"
+        @cs.write "211-Extensions supported\r\n211 end\r\n"
+      when "PWD"
+        self.ftp_pwd(Dir.pwd)
+      when "CWD"
+        self.ftp_cwd(cmd)
+      when "TYPE"
+        ftp_type(cmd[1])
+      when "PORT"
+        ftp_port(cmd[1])
+      when "STOR"
+        ftp_stor(cmd[1])
+      when "RETR"
+        ftp_retr(cmd[1])
+      when "QUIT"
+        ftp_exit()
+      else
+        ftp_502(cmd)
     end
     1
   end
@@ -229,7 +226,7 @@ class VolcanoFtp
             ####
             @pids.delete(pid)
           end
-        end
+       end
        else
         @cs,  = @socket.accept
         peeraddr = @cs.peeraddr.dup
@@ -252,155 +249,156 @@ class VolcanoFtp
     end
   end
 
-protected 
+  protected 
   # Protected methods go here
   # client upload a file
-  def ftp_stor(filename)
-    puts "ftp_stor"
-    data_connection do |data_socket|
-      File.open(filename, 'wb') do |file|
-        if file
-          data = @data_socket.read
-          file.write(data)
-          @log["nombre_fichier"] = @log["nombre_fichier"] + 1
-          puts "nombre de fichier #{@log["nombre_fichier"]}"
-          @cs.write "226 Transfer complete\r\n"
-        else
-          @cs.write "550 Failed to open file\r\n"
-        end
-      end
-    end
-    @data_socket.close if @data_socket
-    @data_socket = nil
-  end
-  
-  def write_log_connexion()
-    @log["date_deconnexion"] = Time.now
-    puts "IP: #{@log["ip"]} Time.connexion: #{@log["date_connexion"]} Time.deconnexion: #{@log["date_deconnexion"]} nombre de fichiers: #{@log["nombre_fichier"]}"
-  end
-    # client download file 
-  def ftp_retr(filename)
-    data_connection do |data_socket|
-      File.open(filename, 'rb') do |file|
-        if file
-          while data = file.read(File.size(filename))
-            @data_socket.write(data)
+    def ftp_stor(filename)
+      puts "ftp_stor"
+      data_connection do |data_socket|
+        File.open(filename, 'wb') do |file|
+          if file
+            data = @data_socket.read
+            file.write(data)
+            @log["nombre_fichier"] = @log["nombre_fichier"] + 1
+            puts "nombre de fichier #{@log["nombre_fichier"]}"
+            @cs.write "226 Transfer complete\r\n"
+          else
+            @cs.write "550 Failed to open file\r\n"
           end
-          @log["nombre_fichier"] = @log["nombre_fichier"] + 1
-          puts "nombre de fichier #{@log["nombre_fichier"]}"
-          @cs.write "226 Transfer complete\r\n"
-        else
-          @cs.write "550 Failed to open file\r\n"
         end
       end
+      @data_socket.close if @data_socket
+      @data_socket = nil
     end
-    @data_socket.close if @data_socket
-    @data_socket = nil
-  end
   
-  def open_data_transfer(&block)
-    client_socket = nil
-    if (Thread.current[:passive])
-      client_socket = Thread.current[:data_socket].accept
-      @cs.write "150 File status OK\r\n"
-    else
-      client_socket = Thread.current[:data_socket]
-      @cs.write "125 File status OK\r\n"
+    def write_log_connexion()
+      @log["date_deconnexion"] = Time.now
+      puts "IP: #{@log["ip"]} Time.connexion: #{@log["date_connexion"]} Time.deconnexion: #{@log["date_deconnexion"]} nombre de fichiers: #{@log["nombre_fichier"]}"
     end
- 
-    yield(client_socket)
-    puts "ok!"
-    return true
-    ensure
-      client_socket.close if client_socket && Thread.current[:passive]
-      client_socket = nil    
-  end
-end
-
-# Usage du script
-def usage
-  puts "Usage: ruby volcano_ftp.rb start|stop|restart"
-end
-
-def start(var_pids)
-  if var_pids == "nil"
-    begin
-      config = begin
-        YAML.load(File.open("config/config.yml"))
-      rescue ArgumentError => e
-        puts "Could not parse YAML: #{e.message}"
+    # client download file 
+    def ftp_retr(filename)
+      data_connection do |data_socket|
+        File.open(filename, 'rb') do |file|
+          if file
+            while data = file.read(File.size(filename))
+              @data_socket.write(data)
+            end
+            @log["nombre_fichier"] = @log["nombre_fichier"] + 1
+            puts "nombre de fichier #{@log["nombre_fichier"]}"
+            @cs.write "226 Transfer complete\r\n"
+          else
+            @cs.write "550 Failed to open file\r\n"
+          end
+        end
       end
-    ftp = VolcanoFtp.new(config)
-    write_pid_yml(Process.pid)
-    ftp.run
-    rescue
-      write_pid_yml(Process.pid)
-      puts "Erreur : #{$!}"
+      @data_socket.close if @data_socket
+      @data_socket = nil
     end
-  else
-    puts "The server is already running"
+  
+    def open_data_transfer(&block)
+      client_socket = nil
+      if (Thread.current[:passive])
+        client_socket = Thread.current[:data_socket].accept
+        @cs.write "150 File status OK\r\n"
+      else
+        client_socket = Thread.current[:data_socket]
+        @cs.write "125 File status OK\r\n"
+      end
+   
+      yield(client_socket)
+      puts "ok!"
+      return true
+      ensure
+        client_socket.close if client_socket && Thread.current[:passive]
+        client_socket = nil    
+    end
   end
-end
 
+  # Usage du script
+  def usage
+    puts "Usage: ruby volcano_ftp.rb start|stop|restart"
+  end
 
-# M�thode permettant d'arr�ter le serveur
-def stop(var_pids)
-  begin
+  def start(var_pids)
     if var_pids == "nil"
-     puts "No server is running"
-    else 
-      Process.kill(1, var_pids)
-      write_pid_yml("nil")
-      puts "Server is closed"
-    end
-  rescue
-  puts "Server not closed properly"
-  write_pid_yml("nil")
-  end
-end
-
-def get_pids_yml
-  config = begin
-    YAML.load(File.open("config/config.yml"))
-  rescue ArgumentError => e
-    puts "Could not parse YAML: #{e.message}"
-  end
-  config['pids']
-end
-
-def write_pid_yml(pid)
-  config = begin
-    YAML.load(File.open("config/config.yml"))
-  rescue ArgumentError => e
-    puts "Could not parse YAML: #{e.message}"
-  end
-  config['pids'] = pid
-  File.open("config/config.yml", "w") do |f|
-    f.puts("port   : #{config['port']}")
-    f.puts("bind   : #{config['bind']}")
-    f.puts("root_directory   : #{config['root_directory']}")
-    f.puts("pids   : #{pid}")
-  end
-end
-
-# Main
-if ARGV[0]
-  begin
-    case ARGV[0]
-    when "start"
-        start(get_pids_yml)
-    when "stop"
-      stop(get_pids_yml)
-    when "restart"
-      stop(get_pids_yml)
-      start(get_pids_yml)
+      begin
+        config = begin
+          YAML.load(File.open("config/config.yml"))
+        rescue ArgumentError => e
+          puts "Could not parse YAML: #{e.message}"
+        end
+        ftp = VolcanoFtp.new(config)
+        write_pid_yml(Process.pid)
+        ftp.run
+      rescue
+        write_pid_yml(Process.pid)
+        puts "Erreur : #{$!}"
+      end
     else
-      usage
+      puts "The server is already running"
     end
-  rescue SystemExit, Interrupt
-    puts "Caught CTRL+C, exiting"
-  rescue RuntimeError => e
-    puts e
+  end
+
+
+  # M�thode permettant d'arr�ter le serveur
+  def stop(var_pids)
+    begin
+      if var_pids == "nil"
+       puts "No server is running"
+      else 
+        Process.kill(1, var_pids)
+        write_pid_yml("nil")
+        puts "Server is closed"
+      end
+    rescue
+      puts "Server not closed properly"
+      write_pid_yml("nil")
+    end
+  end
+
+  def get_pids_yml
+    config = begin
+      YAML.load(File.open("config/config.yml"))
+    rescue ArgumentError => e
+      puts "Could not parse YAML: #{e.message}"
+    end
+    config['pids']
+  end
+
+  def write_pid_yml(pid)
+    config = begin
+      YAML.load(File.open("config/config.yml"))
+    rescue ArgumentError => e
+      puts "Could not parse YAML: #{e.message}"
+    end
+    config['pids'] = pid
+    File.open("config/config.yml", "w") do |f|
+      f.puts("port   : #{config['port']}")
+      f.puts("bind   : #{config['bind']}")
+      f.puts("root_directory   : #{config['root_directory']}")
+      f.puts("pids   : #{pid}")
+    end
+  end
+
+  # Main
+  if ARGV[0]
+    begin
+      case ARGV[0]
+        when "start"
+            start(get_pids_yml)
+        when "stop"
+          stop(get_pids_yml)
+        when "restart"
+          stop(get_pids_yml)
+          start(get_pids_yml)
+        else
+          usage
+      end
+    rescue SystemExit, Interrupt
+      puts "Caught CTRL+C, exiting"
+    rescue RuntimeError => e
+      puts e
+    end
   end
 end
 
