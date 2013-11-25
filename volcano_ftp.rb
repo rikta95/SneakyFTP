@@ -13,8 +13,8 @@ MAX_USER = 50
 # Volcano FTP class
 class VolcanoFtp
   def initialize(config)
+    @textConn = Dir.pwd
     @log = {"ip"=>"","date_connexion"=>0,"date_deconnexion"=>0,"nombre_fichier"=>0}
-    puts "reinitialisation"
     @host = config['bin_adress']
     @port = config['port']
     @flag_connected = true
@@ -238,14 +238,15 @@ class VolcanoFtp
             @cs.write "220-\r\n\r\n Welcome to Volcano FTP server !\r\n\r\n220 Connected\r\n"
             line = @cs.gets
             while not (line).nil?
-              puts "fucking curl"
               puts "[#{Process.pid}] Client sent : --#{line.strip}--"
               # Manage output command
               manage_line(line)
               begin
               line = @cs.gets
                 rescue Interrupt
-                  puts "fucking connection is closed without fucking crash !"
+                  write_log_connexion()
+                  stop(get_pids_yml)
+                  Kernel.exit!
               end
             end
             puts "[#{Process.pid}] Killing connection from #{peeraddr[2]}:#{peeraddr[1]}"
@@ -287,7 +288,7 @@ class VolcanoFtp
     diff = @log["date_deconnexion"] - @log["date_connexion"]
     diff = (diff * 10 ** 2).round.to_f / 10 ** 2
     #puts "#{@log["ip"]};#{@log["date_connexion"]};#{@log["date_deconnexion"]};#{diff};#{@log["nombre_fichier"]}"
-    File.open("connexions.txt", "a") do |f|
+    File.open("#{@textConn}/connexions.txt", "a") do |f|
     f.puts("#{@log["ip"]};#{@log["date_connexion"]};#{@log["date_deconnexion"]};#{diff};#{@log["nombre_fichier"]}")
     end
   end
@@ -339,7 +340,11 @@ end
     if var_pids == "nil"
       begin
         config = begin
-          YAML.load(File.open("config/config.yml"))
+          if @textConn.nil?
+            YAML.load(File.open("config/config.yml"))
+          else
+            YAML.load(File.open("#{@textConn}/config/config.yml"))
+          end
         rescue ArgumentError => e
           puts "Could not parse YAML: #{e.message}"
         end
@@ -374,7 +379,11 @@ end
 
   def get_pids_yml
     config = begin
-      YAML.load(File.open("config/config.yml"))
+      if @textConn.nil?
+        YAML.load(File.open("config/config.yml"))
+      else
+        YAML.load(File.open("#{@textConn}/config/config.yml"))
+      end
     rescue ArgumentError => e
       puts "Could not parse YAML: #{e.message}"
     end
@@ -383,17 +392,30 @@ end
 
   def write_pid_yml(pid)
     config = begin
-      YAML.load(File.open("config/config.yml"))
+            if @textConn.nil?
+              YAML.load(File.open("config/config.yml"))
+            else
+              YAML.load(File.open("#{@textConn}/config/config.yml"))
+            end
     rescue ArgumentError => e
       puts "Could not parse YAML: #{e.message}"
     end
     config['pids'] = pid
-    File.open("config/config.yml", "w") do |f|
+      if @textConn.nil?
+            File.open("config/config.yml", "w") do |f|
       f.puts("port   : #{config['port']}")
       f.puts("bind   : #{config['bind']}")
       f.puts("root_directory   : #{config['root_directory']}")
       f.puts("pids   : #{pid}")
     end
+      else
+            File.open("#{@textConn}/config/config.yml", "w") do |f|
+      f.puts("port   : #{config['port']}")
+      f.puts("bind   : #{config['bind']}")
+      f.puts("root_directory   : #{config['root_directory']}")
+      f.puts("pids   : #{pid}")
+    end
+      end
   end
 
   # Main
