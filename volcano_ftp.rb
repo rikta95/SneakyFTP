@@ -236,10 +236,17 @@ class VolcanoFtp
             @log["ip"] = @cs.peeraddr[2]
             @log["date_connexion"] = Time.now
             @cs.write "220-\r\n\r\n Welcome to Volcano FTP server !\r\n\r\n220 Connected\r\n"
-            while not (line = @cs.gets).nil?
+            line = @cs.gets
+            while not (line).nil?
+              puts "fucking curl"
               puts "[#{Process.pid}] Client sent : --#{line.strip}--"
               # Manage output command
               manage_line(line)
+              begin
+              line = @cs.gets
+                rescue Interrupt
+                  puts "fucking connection is closed without fucking crash !"
+              end
             end
             puts "[#{Process.pid}] Killing connection from #{peeraddr[2]}:#{peeraddr[1]}"
             write_log_connexion()
@@ -391,7 +398,6 @@ end
 
   # Main
 #pid = fork do #DECOMMENTER CETTE LIGNE POUR UTILISER LE SCRIPT CONVENABLEMENT SANS LOG
-  if ARGV[0]
     begin
       case ARGV[0]
         when "start"
@@ -402,6 +408,7 @@ end
           stop(get_pids_yml)
           start(get_pids_yml)
         else
+          puts "usage"
           usage
       end
     rescue SystemExit, Interrupt
@@ -409,6 +416,5 @@ end
     rescue RuntimeError => e
       puts e
     end
-  end
 #end
 
