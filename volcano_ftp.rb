@@ -82,7 +82,7 @@ class VolcanoFtp
     end
     begin
       Dir.chdir(str)
-      @cs.write "250 Directory successfully changed.\r\t"
+      @cs.write "250 Directory successfully changed.\r\n"
     rescue
       @cs.write "550 Failed to change directory.\r\n"
     end
