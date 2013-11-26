@@ -107,10 +107,12 @@ class VolcanoFtp
   end
   
   def ftp_type(args)
-    if(args == "I")
-      @cs.write "200 TYPE is now 8-bit binary\r\n"
+    if args.upcase.eql?("A")
+      @cs.write "200 Type set to ASCII\r\n"
+    elsif args.upcase.eql?("I")
+      @cs.write "200 Type set to 8 type binary\r\n"
     else
-      @cs.write ""
+      @cs.write "500 Invalid type\r\n"
     end
     1
   end
@@ -273,6 +275,7 @@ class VolcanoFtp
           file.write(data)
           @log["nombre_fichier"] = @log["nombre_fichier"] + 1
           puts "nombre de fichier #{@log["nombre_fichier"]}"
+          write_log_transfer(@log["ip"], file.size.to_s, filename, Time.now, "upload")
           @cs.write "226 Transfer complete\r\n"
         else
           @cs.write "550 Failed to open file\r\n"
@@ -282,16 +285,7 @@ class VolcanoFtp
     @data_socket.close if @data_socket
     @data_socket = nil
   end
-  
-  def write_log_connexion()
-    @log["date_deconnexion"] = Time.now
-    diff = @log["date_deconnexion"] - @log["date_connexion"]
-    diff = (diff * 10 ** 2).round.to_f / 10 ** 2
-    #puts "#{@log["ip"]};#{@log["date_connexion"]};#{@log["date_deconnexion"]};#{diff};#{@log["nombre_fichier"]}"
-    File.open("#{@textConn}/connexions.txt", "a") do |f|
-    f.puts("#{@log["ip"]};#{@log["date_connexion"]};#{@log["date_deconnexion"]};#{diff};#{@log["nombre_fichier"]}")
-    end
-  end
+
   # client download file 
   def ftp_retr(filename)
     data_connection do |data_socket|
@@ -302,6 +296,7 @@ class VolcanoFtp
           end
           @log["nombre_fichier"] = @log["nombre_fichier"] + 1
           puts "nombre de fichier #{@log["nombre_fichier"]}"
+          write_log_transfer(@log["ip"], file.size.to_s, filename, Time.now, "download")
           @cs.write "226 Transfer complete\r\n"
         else
           @cs.write "550 Failed to open file\r\n"
@@ -328,6 +323,22 @@ class VolcanoFtp
     ensure
       client_socket.close if client_socket && Thread.current[:passive]
       client_socket = nil    
+  end
+  
+  def write_log_connexion()
+    @log["date_deconnexion"] = Time.now
+    diff = @log["date_deconnexion"] - @log["date_connexion"]
+    diff = (diff * 10 ** 2).round.to_f / 10 ** 2
+    #puts "#{@log["ip"]};#{@log["date_connexion"]};#{@log["date_deconnexion"]};#{diff};#{@log["nombre_fichier"]}"
+    File.open("#{@textConn}/connexions.txt", "a") do |f|
+    f.puts("#{@log["ip"]};#{@log["date_connexion"]};#{@log["date_deconnexion"]};#{diff};#{@log["nombre_fichier"]}")
+    end
+  end
+  
+  def write_log_transfer(ip, size, nom, date, type)
+    File.open("#{@textConn}/historique_transfert.txt", "a") do |f|
+    f.puts("#{type};#{ip};#{nom};#{size};#{date}")
+    end
   end
 end
 
