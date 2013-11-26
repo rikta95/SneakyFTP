@@ -53,6 +53,10 @@ class VolcanoFtp
         self.ftp_pwd(Dir.pwd)
       when "CWD"
         self.ftp_cwd(cmd)
+      when "PASV"
+        self.ftp_pasv()
+      when "DELE"
+        self.ftp_dele(cmd[1])
       when "TYPE"
         ftp_type(cmd[1])
       when "PORT"
@@ -67,6 +71,43 @@ class VolcanoFtp
         ftp_502(cmd)
     end
     1
+  end
+
+  def ftp_dele(filename)
+    File.new(filename, 'w')
+    File.delete(filename)
+    path = Dir.pwd;
+    @cs.write "250 #{path}/#{filename} deleted.\r\n"
+  end
+
+    def passive_server
+    socket = nil
+    port = MIN_PORT
+    while (socket.nil?) and (port <= MAX_PORT)
+      begin
+        socket = TCPServer.new(@host, port)
+      rescue Errno::EADDRINUSE
+        puts "#{port} is already in use. Trying next port."
+      end
+      port += 1
+    end
+    return socket
+  end
+
+    def ftp_pasv()
+    if @data_socket
+      @data_socket.close
+      @data_socket = nil
+    end
+    @data_socket = passive_server
+    if @data_socket.nil?
+      return status(425)
+    end
+    @passive = true
+    port = @data_socket.addr[1]
+    ip = @data_socket.addr[3]
+    ip = ip.split('.')
+    @cs.write "227 Entering Passive Mode (#{ip[0]},#{ip[1]},#{ip[2]},#{ip[3]},#{MAX_PORT},#{MIN_PORT})\r\n"
   end
 
     # Changer le repertoire courrant
